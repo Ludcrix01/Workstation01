@@ -1,0 +1,219 @@
+openapi: 3.0.3
+info:
+  title: MJWorkHub Activity Tracking API
+  version: 0.1.0
+servers:
+  - url: https://api.mjworkhub.example.com
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    StartSessionRequest:
+      type: object
+      required: [userId, module]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        module:
+          type: string
+        clientNonce:
+          type: string
+    Event:
+      type: object
+      required: [type, timestamp]
+      properties:
+        type:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+    BatchEventsRequest:
+      type: object
+      required: [sessionId, events]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+paths:
+  /api/track/start-session:
+    post:
+      summary: Start an activity session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSessionRequest'
+      responses:
+        '201':
+          description: session started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+  /api/track/event:
+    post:
+      summary: Post batched events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchEventsRequest'
+      responses:
+        '200':
+          description: events accepted
+  /api/track/end-session:
+    post:
+      summary: End a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: session ended
+
+  /admin/providers:
+    get:
+      summary: List providers (Super Admin)
+      responses:
+        '200':
+          description: list
+    post:
+      summary: Create provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                display_name:
+                  type: string
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                default_scopes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: created
+
+  /admin/providers/{id}/assign-company:
+    post:
+      summary: Assign provider to a company
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                companyId:
+                  type: string
+                enabled:
+                  type: boolean
+                allowed_scopes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: assigned
+
+  /admin/providers/{id}/assign-user:
+    post:
+      summary: Grant user permission for provider
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                companyId:
+                  type: string
+                userId:
+                  type: string
+                role:
+                  type: string
+      responses:
+        '200':
+          description: granted
+
+  /admin/providers/{id}/test-connection:
+    post:
+      summary: Test provider connection (e.g., Microsoft client credentials)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: { ok: true, details: string }
+
+  /auth/microsoft/start:
+    get:
+      summary: Start Microsoft OAuth flow
+      parameters:
+        - in: query
+          name: providerId
+        - in: query
+          name: companyId
+      responses:
+        '302':
+          description: Redirect to Microsoft consent page
+
+  /auth/microsoft/callback:
+    get:
+      summary: OAuth callback for Microsoft
+      parameters:
+        - in: query
+          name: code
+        - in: query
+          name: state
+      responses:
+        '200':
+          description: OAuth exchange result
